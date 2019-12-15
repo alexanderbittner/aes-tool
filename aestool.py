@@ -1,6 +1,10 @@
 empty_block = bytearray(b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
 full_block  = bytearray(b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff")
-test_block  = bytearray(b"\xff\x00\x0a\x41\xff\x00\x0a\x41\xff\x00\x0a\x41\xff\x00\x0a\x41")
+test_block  = bytearray(b"\xde\xca\xfb\xad\xc0\xde\xba\x5e\xde\xad\xc0\xde\xba\xdc\x0d\xed")
+
+def roundcount(round):
+    rc = { 1: 0x01, 2: 0x02, 3: 0x04, 4: 0x08, 5: 0x10, 6: 0x20, 7: 0x40, 8: 0x80, 9: 0x1B, 10: 0x36}
+    return rc[round]
 
 def xor_8(a,b):
     if(type(a) != bytearray or type(b) != bytearray): raise ValueError("types should be bytearray, they are ", type(a), type(b))
@@ -32,9 +36,8 @@ def key_addition(state, subkey):
     print("[INFO] performing key addition")
     return xor_128(state, subkey)
 
-def byte_substitution():
-    # TODO: implement byte_substitution layer
-    print("byte substitution function (running the S-Boxes)); not yet implemented")
+def byte_substitution(direction, state):
+    return sbox(direction, state)
 
 def shift_rows():
     # TODO: implement shift_rows layer
@@ -44,12 +47,11 @@ def mix_column():
     # TODO: implement mix_column layer
     print("mix column function; not yet implemented")
 
-def g_function(word):
-    # TODO: implement g-function
+def g_function(word, counter):
     # gets 32 bits (byte array of 4), permutates with left shift, then s-box, then xor with RC
 
     #temporary until round counter stuff is implemented:
-    counter = 0x00000001
+    # counter = 0x00000001
     permutated = bytearray(4)
     result = bytearray(4)
     boxed = bytearray(4)
@@ -70,17 +72,41 @@ def h_function(word):
     return result
 
 def generate_subkeys(mode, main_key):
-    # TODO: implement subkeys function that generates x subkeys from master key depending on length
     # generates subkeys from main key, returns list of round keys (either 10, 12 or 14)
+    # all round keys are byte arrays of size 16 (128 bit)
+    # all words are byte arrays of size 4 (32 bit)
     if(mode == 128):
-        # do something
-        print("1")
+        keys = []
+        words = []
+
+        for i in range(4):
+            # set first words
+            words.append( bytearray( [main_key[i*4], main_key[(i*4)+1], main_key[(i*4)+2], main_key[(i*4)+3]] ) )
+        
+        # main key is first round key
+        keys.append(bytearray( words[0] + words[1] + words[2] + words[3] ))
+        #print("round key of round 0 is", str(''.join(format(x, '02x') for x in keys[0])))
+
+        # calculate round keys
+        for i in range(10):
+            '''
+            print("word",i*4,"is",words[i*4])
+            print("word",i*4+3,"is",words[i*4+3])
+            print("round counter is", roundcount(i+1))
+            print("about to append", str(''.join(format(x, '02x') for x in ( xor_32(words[i*4], g_function(words[i*4+3], roundcount(i+1))) ))))
+            '''
+            words.append( xor_32(words[i*4], g_function(words[i*4+3], roundcount(i+1))) )
+            words.append( xor_32(words[i*4+4], words[i*4+1]) )
+            words.append( xor_32(words[i*4+5], words[i*4+2]) )
+            words.append( xor_32(words[i*4+6], words[i*4+3]) )
+            keys.append(bytearray( words[i*4+4] + words[i*4+5] + words[i*4+6] + words[i*4+7] ))
+            #print("round key of round", i+1, "is", str(''.join(format(x, '02x') for x in keys[i+1])))
+        return keys
+
     elif(mode == 192):
-        # do something
-        print("1")
+        raise NotImplementedError
     elif(mode == 256):
-        # do something
-        print("1")
+        raise NotImplementedError
     else:
         raise ValueError("this is not good")
 
@@ -141,16 +167,40 @@ def sbox(direction, input):
 
 
 
-def encrypt(mode, plaintext):
+def encrypt(mode, plaintext, masterkey):
+    # plaintext should be 16 byte bytearray
     # depending on mode, determine amount of rounds
     # AES-128: 10 rounds
     # AES-192: 12 rounds
     # AES-256: 14 rounds
-    # TODO: encryption function
     modeDict = {128: 10, 192: 12, 256: 14}
-    print("encryption function; not yet implemented")
+    state = bytearray(16)
+    # generate subkeys, save into key array
+    keys = generate_subkeys(mode, masterkey)
+
+    #key addition
+    state = key_addition(plaintext, keys[0])
+    #rounds
+    for i in range(modeDict(mode)):
+        print("1")
+        # Byte substitution
+        state = byte_substitution("forward", state)
+        # shift rows
+        state = shift_rows("forward", state)
+        # mix column
+        state = mix_column("forward", state)
+        # key addition
+        key_addition(state, keys[i+1])
 
 def decrypt(mode):
     # TODO: decryption function
     print("decryption function; not yet implemented")
 
+test_block  = bytearray(b"\x54\x68\x61\x74\x73\x20\x6d\x79\x20\x4b\x75\x6e\x67\x20\x46\x75")
+
+# generate a set of derived subkeys from the test key
+print("Main key:")
+print(str(''.join(format(x, '02x') for x in ( test_block ))))
+print("Derived keys:")
+for i in range(10):
+    print(str(''.join(format(x, '02x') for x in ( generate_subkeys(128, test_block)[i] ))))
