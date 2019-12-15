@@ -1,7 +1,3 @@
-empty_block = bytearray(b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
-full_block  = bytearray(b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff")
-test_block  = bytearray(b"\xde\xca\xfb\xad\xc0\xde\xba\x5e\xde\xad\xc0\xde\xba\xdc\x0d\xed")
-
 def roundcount(round):
     rc = { 1: 0x01, 2: 0x02, 3: 0x04, 4: 0x08, 5: 0x10, 6: 0x20, 7: 0x40, 8: 0x80, 9: 0x1B, 10: 0x36}
     return rc[round]
@@ -72,14 +68,11 @@ def three(in_byte):
     return result
 
 def key_addition(state, subkey):
+    # direction is not yet implemented
     # types should be bytearray of size 16 (128-bit)
     if(type(state) != bytearray or type(subkey) != bytearray): raise ValueError("types should be bytearray, they are ", type(state), type(subkey))
     if(len(state) != 16 or len(subkey) != 16): raise ValueError("sizes should be 16, they are",len(state), len(subkey))
-    #print("[INFO] performing key addition")
-    #print("[INFO] state is", str(''.join(format(x, '02x') for x in ( state ))), "subkey is", str(''.join(format(x, '02x') for x in ( subkey ))))
     result = xor_128(state, subkey)
-    #print("[INFO] performed key addition")
-    #print("[INFO] state is", str(''.join(format(x, '02x') for x in ( result ))))
     return result
 
 def byte_substitution(direction, state):
@@ -113,21 +106,7 @@ def shift_rows(direction, state):
 
 
 def mix_column(direction, state):
-    # direction is not yet implemented
-    # split up into 32 bit parts
-    
-    #substate = []
-    #for i in range(4):
-    #    substate.append(bytearray( state[i*4] + state[i*4+1] + state[i*4+2] + state[i*4+3] ))
-    
-    """ def two(x):
-        y = 0x00
-        return y
-
-    def three(x):
-        y = 0x00
-        return y """
-
+    # reverse direction is not yet implemented
     if(direction == "forward"):
         # one mixcolumn box
         out = bytearray(16)
@@ -137,28 +116,21 @@ def mix_column(direction, state):
             out[i*4+2] = state[i*4] ^ state[i*4+1] ^ two(state[i*4+2]) ^ three(state[i*4+3])
             out[i*4+3] = three(state[i*4]) ^ state[i*4+1] ^ state[i*4+2] ^ two(state[i*4+3])
         return out
-
-        # implement putting this back together
     else:
         raise NotImplementedError
 
 def g_function(word, counter):
     # gets 32 bits (byte array of 4), permutates with left shift, then s-box, then xor with RC
-
-    #temporary until round counter stuff is implemented:
-    # counter = 0x00000001
     permutated = bytearray(4)
     result = bytearray(4)
     boxed = bytearray(4)
     permutated[3] = word[0]
     for i in range(3):
         permutated[i] = word[i+1]
-
     boxed = sbox("forward", permutated)
     result[0] = xor_8(bytearray([boxed[0]]), bytearray([counter]))[0]
     for i in range(3):
         result[i+1] = boxed[i+1]
-
     return result
 
 def h_function(word):
@@ -173,39 +145,25 @@ def generate_subkeys(mode, main_key):
     if(mode == 128):
         keys = []
         words = []
-
         for i in range(4):
-            # set first words
+            # set words based on main key
             words.append( bytearray( [main_key[i*4], main_key[(i*4)+1], main_key[(i*4)+2], main_key[(i*4)+3]] ) )
-        
         # main key is first round key
         keys.append(bytearray( words[0] + words[1] + words[2] + words[3] ))
-        #print("round key of round 0 is", str(''.join(format(x, '02x') for x in keys[0])))
-
         # calculate round keys
         for i in range(10):
-            '''
-            print("word",i*4,"is",words[i*4])
-            print("word",i*4+3,"is",words[i*4+3])
-            print("round counter is", roundcount(i+1))
-            print("about to append", str(''.join(format(x, '02x') for x in ( xor_32(words[i*4], g_function(words[i*4+3], roundcount(i+1))) ))))
-            '''
             words.append( xor_32(words[i*4], g_function(words[i*4+3], roundcount(i+1))) )
             words.append( xor_32(words[i*4+4], words[i*4+1]) )
             words.append( xor_32(words[i*4+5], words[i*4+2]) )
             words.append( xor_32(words[i*4+6], words[i*4+3]) )
             keys.append(bytearray( words[i*4+4] + words[i*4+5] + words[i*4+6] + words[i*4+7] ))
-            #print("round key of round", i+1, "is", str(''.join(format(x, '02x') for x in keys[i+1])))
         return keys
-
     elif(mode == 192):
         raise NotImplementedError
     elif(mode == 256):
         raise NotImplementedError
     else:
         raise ValueError("this is not good")
-
-    print("subkey generation function; not yet implemented")
 
 def sbox(direction, input):
     # input is a byte array
@@ -248,12 +206,10 @@ def sbox(direction, input):
     )
     if(direction == "forward"):
         for i in range(len(input)):
-            # print("entry in sbox is",hex(rijndael_sbox[input[i]]))
             result[i] = rijndael_sbox[input[i]]
         return result
     elif(direction == "reverse"):
         for i in range(len(input)):
-            # print("entry in sbox is",hex(rijndael_inv_sbox[input[i]]))
             result[i] = rijndael_sbox[input[i]]
         return result
     else:
@@ -284,7 +240,6 @@ def encrypt(mode, plaintext, masterkey):
     print("\nFirst round: Key addition")
     state = key_addition(plaintext, keys[0])
     print("current state is", str(''.join(format(x, '02x') for x in ( state ))), "\n")
-
 
     #rounds start
     for i in range(modeDict[mode]):
@@ -320,4 +275,4 @@ def decrypt(mode):
 test_block  = bytearray(b"\x54\x68\x61\x74\x73\x20\x6d\x79\x20\x4b\x75\x6e\x67\x20\x46\x75")
 plaintext = bytearray("Two One Nine Two", "ascii")
 
-print(encrypt(128, plaintext, test_block))
+print(str(''.join(format(x, '02x') for x in ( encrypt(128, plaintext, test_block) ))))
