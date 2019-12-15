@@ -29,23 +29,115 @@ def xor_128(a, b):
         result[i] = a[i] ^ b[i]
     return result
 
+def two(in_byte):
+    def setBit(int_type, offset, value):
+        mask = value << offset
+        return(int_type | mask)
+
+    def testBit(int_type, offset):
+        mask = 1 << offset
+        return(int_type & mask)
+
+    result = 0
+    result = setBit(result, 7, int(testBit(in_byte, 6) != 0))
+    result = setBit(result, 6, int(testBit(in_byte, 5) != 0))
+    result = setBit(result, 5, int(testBit(in_byte, 4) != 0))
+    result = setBit(result, 4, int(testBit(in_byte, 3) != 0) ^ int(testBit(in_byte, 7) != 0))
+
+    result = setBit(result, 3, int(testBit(in_byte, 2) != 0) ^ int(testBit(in_byte, 7) != 0))
+    result = setBit(result, 2, int(testBit(in_byte, 1) != 0))
+    result = setBit(result, 1, int(testBit(in_byte, 0) != 0) ^ int(testBit(in_byte, 7) != 0))
+    result = setBit(result, 0, int(testBit(in_byte, 7) != 0))
+    return result
+
+def three(in_byte):
+    def setBit(int_type, offset, value):
+        mask = value << offset
+        return(int_type | mask)
+
+    def testBit(int_type, offset):
+        mask = 1 << offset
+        return(int_type & mask)
+
+    result = 0
+    result = setBit(result, 7, int(testBit(in_byte, 7) != 0) ^ int(testBit(in_byte, 6) != 0))
+    result = setBit(result, 6, int(testBit(in_byte, 6) != 0) ^ int(testBit(in_byte, 5) != 0))
+    result = setBit(result, 5, int(testBit(in_byte, 5) != 0) ^ int(testBit(in_byte, 4) != 0))
+    result = setBit(result, 4, int(testBit(in_byte, 4) != 0) ^ int(testBit(in_byte, 3) != 0) ^ int(testBit(in_byte, 7) != 0))
+
+    result = setBit(result, 3, int(testBit(in_byte, 3) != 0) ^ int(testBit(in_byte, 2) != 0) ^ int(testBit(in_byte, 7) != 0))
+    result = setBit(result, 2, int(testBit(in_byte, 2) != 0) ^ int(testBit(in_byte, 1) != 0))
+    result = setBit(result, 1, int(testBit(in_byte, 1) != 0) ^ int(testBit(in_byte, 0) != 0) ^ int(testBit(in_byte, 7) != 0))
+    result = setBit(result, 0, int(testBit(in_byte, 0) != 0) ^ int(testBit(in_byte, 7) != 0))
+    return result
+
 def key_addition(state, subkey):
-    # types should be bytearray of size 128
+    # types should be bytearray of size 16 (128-bit)
     if(type(state) != bytearray or type(subkey) != bytearray): raise ValueError("types should be bytearray, they are ", type(state), type(subkey))
     if(len(state) != 16 or len(subkey) != 16): raise ValueError("sizes should be 16, they are",len(state), len(subkey))
     print("[INFO] performing key addition")
-    return xor_128(state, subkey)
+    print("[INFO] state is", str(''.join(format(x, '02x') for x in ( state ))), "subkey is", str(''.join(format(x, '02x') for x in ( subkey ))))
+    result = xor_128(state, subkey)
+    print("[INFO] performed key addition")
+    print("[INFO] state is", str(''.join(format(x, '02x') for x in ( result ))))
+    return result
 
 def byte_substitution(direction, state):
     return sbox(direction, state)
 
-def shift_rows():
-    # TODO: implement shift_rows layer
-    print("shift rows function; not yet implemented")
+def shift_rows(state):
+    # state should be a bytearray of size 16 (128-bit)
+    result = bytearray(16)
+    result[0] = state[0]
+    result[1] = state[5]
+    result[2] = state[10]
+    result[3] = state[15]
+    result[4] = state[4]
+    result[5] = state[9]
+    result[6] = state[14]
+    result[7] = state[3]
+    result[8] = state[8]
+    result[9] = state[13]
+    result[10] = state[2]
+    result[11] = state[7]
+    result[12] = state[12]
+    result[13] = state[1]
+    result[14] = state[6]
+    result[15] = state[11]
 
-def mix_column():
-    # TODO: implement mix_column layer
-    print("mix column function; not yet implemented")
+    return result
+
+
+
+def mix_column(direction, state):
+    # direction is not yet implemented
+    # split up into 32 bit parts
+    
+    #substate = []
+    #for i in range(4):
+    #    substate.append(bytearray( state[i*4] + state[i*4+1] + state[i*4+2] + state[i*4+3] ))
+    
+    """ def two(x):
+        y = 0x00
+        return y
+
+    def three(x):
+        y = 0x00
+        return y """
+
+    if(direction == "forward"):
+        # one mixcolumn box
+        out = bytearray(16)
+        for i in range(4):
+            out[i*4]   = two(state[i*4]) ^ three(state[i*4+1]) ^ state[i*4+2] ^ state[i*4+3]
+            out[i*4+1] = state[i*4] ^ two(state[i*4+1]) ^ three(state[i*4+2]) ^ state[i*4+3]
+            out[i*4+2] = state[i*4] ^ state[i*4+1] ^ two(state[i*4+2]) ^ three(state[i*4+3])
+            out[i*4+3] = three(state[i*4]) ^ state[i*4+1] ^ state[i*4+2] ^ two(state[i*4+3])
+        return out
+
+        # implement putting this back together
+    else:
+        raise NotImplementedError
 
 def g_function(word, counter):
     # gets 32 bits (byte array of 4), permutates with left shift, then s-box, then xor with RC
@@ -182,7 +274,6 @@ def encrypt(mode, plaintext, masterkey):
     state = key_addition(plaintext, keys[0])
     #rounds
     for i in range(modeDict(mode)):
-        print("1")
         # Byte substitution
         state = byte_substitution("forward", state)
         # shift rows
@@ -196,11 +287,3 @@ def decrypt(mode):
     # TODO: decryption function
     print("decryption function; not yet implemented")
 
-test_block  = bytearray(b"\x54\x68\x61\x74\x73\x20\x6d\x79\x20\x4b\x75\x6e\x67\x20\x46\x75")
-
-# generate a set of derived subkeys from the test key
-print("Main key:")
-print(str(''.join(format(x, '02x') for x in ( test_block ))))
-print("Derived keys:")
-for i in range(10):
-    print(str(''.join(format(x, '02x') for x in ( generate_subkeys(128, test_block)[i] ))))
