@@ -75,37 +75,40 @@ def key_addition(state, subkey):
     # types should be bytearray of size 16 (128-bit)
     if(type(state) != bytearray or type(subkey) != bytearray): raise ValueError("types should be bytearray, they are ", type(state), type(subkey))
     if(len(state) != 16 or len(subkey) != 16): raise ValueError("sizes should be 16, they are",len(state), len(subkey))
-    print("[INFO] performing key addition")
-    print("[INFO] state is", str(''.join(format(x, '02x') for x in ( state ))), "subkey is", str(''.join(format(x, '02x') for x in ( subkey ))))
+    #print("[INFO] performing key addition")
+    #print("[INFO] state is", str(''.join(format(x, '02x') for x in ( state ))), "subkey is", str(''.join(format(x, '02x') for x in ( subkey ))))
     result = xor_128(state, subkey)
-    print("[INFO] performed key addition")
-    print("[INFO] state is", str(''.join(format(x, '02x') for x in ( result ))))
+    #print("[INFO] performed key addition")
+    #print("[INFO] state is", str(''.join(format(x, '02x') for x in ( result ))))
     return result
 
 def byte_substitution(direction, state):
     return sbox(direction, state)
 
-def shift_rows(state):
+def shift_rows(direction, state):
     # state should be a bytearray of size 16 (128-bit)
-    result = bytearray(16)
-    result[0] = state[0]
-    result[1] = state[5]
-    result[2] = state[10]
-    result[3] = state[15]
-    result[4] = state[4]
-    result[5] = state[9]
-    result[6] = state[14]
-    result[7] = state[3]
-    result[8] = state[8]
-    result[9] = state[13]
-    result[10] = state[2]
-    result[11] = state[7]
-    result[12] = state[12]
-    result[13] = state[1]
-    result[14] = state[6]
-    result[15] = state[11]
+    if(direction == "forward"):
+        result = bytearray(16)
+        result[0] = state[0]
+        result[1] = state[5]
+        result[2] = state[10]
+        result[3] = state[15]
+        result[4] = state[4]
+        result[5] = state[9]
+        result[6] = state[14]
+        result[7] = state[3]
+        result[8] = state[8]
+        result[9] = state[13]
+        result[10] = state[2]
+        result[11] = state[7]
+        result[12] = state[12]
+        result[13] = state[1]
+        result[14] = state[6]
+        result[15] = state[11]
 
-    return result
+        return result
+    else:
+        raise NotImplementedError
 
 
 
@@ -269,21 +272,52 @@ def encrypt(mode, plaintext, masterkey):
     state = bytearray(16)
     # generate subkeys, save into key array
     keys = generate_subkeys(mode, masterkey)
+    print("Plaintext:")
+    print(str(''.join(format(x, '02x') for x in ( plaintext ))), "\n")
+    print("Main key:")
+    print(str(''.join(format(x, '02x') for x in ( masterkey ))), "\n")
+    print("Derived keys:")
+    for i in range(11):
+        print(str(''.join(format(x, '02x') for x in ( generate_subkeys(mode, masterkey)[i] ))))
 
-    #key addition
+    #key addition before rounds start
+    print("\nFirst round: Key addition")
     state = key_addition(plaintext, keys[0])
-    #rounds
-    for i in range(modeDict(mode)):
-        # Byte substitution
+    print("current state is", str(''.join(format(x, '02x') for x in ( state ))), "\n")
+
+
+    #rounds start
+    for i in range(modeDict[mode]):
+        print("round", i+1, "starting")
+
+        #  Byte substitution
+        print("substituting bytes")
         state = byte_substitution("forward", state)
+        print("current state is", str(''.join(format(x, '02x') for x in ( state ))))
+        
         # shift rows
+        print("shifting rows")
         state = shift_rows("forward", state)
-        # mix column
-        state = mix_column("forward", state)
+        print("current state is", str(''.join(format(x, '02x') for x in ( state ))))
+        
+        if(i < modeDict[mode]-1):
+            # mix column
+            print("mixing columns")
+            state = mix_column("forward", state)
+            print("current state is", str(''.join(format(x, '02x') for x in ( state ))))
+
         # key addition
-        key_addition(state, keys[i+1])
+        print("adding subkey", str(''.join(format(x, '02x') for x in ( keys[i+1] ))))
+        state = key_addition(state, keys[i+1])
+        print("current state is", str(''.join(format(x, '02x') for x in ( state ))))
+        print("round", i+1, "complete.\n\n")
+    return state
 
 def decrypt(mode):
     # TODO: decryption function
     print("decryption function; not yet implemented")
 
+test_block  = bytearray(b"\x54\x68\x61\x74\x73\x20\x6d\x79\x20\x4b\x75\x6e\x67\x20\x46\x75")
+plaintext = bytearray("Two One Nine Two", "ascii")
+
+print(encrypt(128, plaintext, test_block))
