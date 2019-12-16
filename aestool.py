@@ -146,10 +146,12 @@ def generate_subkeys(mode, main_key):
         keys = []
         words = []
         for i in range(4):
-            # set words based on main key
+            # set first words based on main key
             words.append( bytearray( [main_key[i*4], main_key[(i*4)+1], main_key[(i*4)+2], main_key[(i*4)+3]] ) )
-        # main key is first round key
+        
+        # append the first words to result key
         keys.append(bytearray( words[0] + words[1] + words[2] + words[3] ))
+        
         # calculate round keys
         for i in range(10):
             words.append( xor_32(words[i*4], g_function(words[i*4+3], roundcount(i+1))) )
@@ -159,9 +161,48 @@ def generate_subkeys(mode, main_key):
             keys.append(bytearray( words[i*4+4] + words[i*4+5] + words[i*4+6] + words[i*4+7] ))
         return keys
     elif(mode == 192):
-        raise NotImplementedError
+        keys = []
+        words = []
+        for i in range(6):
+            # set words based on main key
+            words.append( bytearray( [main_key[i*4], main_key[(i*4)+1], main_key[(i*4)+2], main_key[(i*4)+3]] ) )
+        # main key is first round key
+        # keys.append(bytearray( words[0] + words[1] + words[2] + words[3] + words[4] + words[5] ))
+        # calculate round keys
+        for i in range(8):
+            words.append( xor_32(words[i*6], g_function(words[i*6+5], roundcount(i+1))) )
+            words.append( xor_32(words[i*6+ 6], words[i*6+1]) )
+            words.append( xor_32(words[i*6+ 7], words[i*6+2]) )
+            words.append( xor_32(words[i*6+ 8], words[i*6+3]) )
+            words.append( xor_32(words[i*6+ 9], words[i*6+4]) )
+            words.append( xor_32(words[i*6+10], words[i*6+5]) )
+
+        for i in range(13):
+            keys.append(bytearray( words[i*4] + words[i*4+1] + words[i*4+2] + words[i*4+3] ))
+        return keys
     elif(mode == 256):
-        raise NotImplementedError
+        keys = []
+        words = []
+        for i in range(8):
+            # set words based on main key
+            words.append( bytearray( [main_key[i*4], main_key[(i*4)+1], main_key[(i*4)+2], main_key[(i*4)+3]] ) )
+        # main key is first round key
+        # keys.append(bytearray( words[0] + words[1] + words[2] + words[3] + words[4] + words[5] ))
+        # calculate round keys
+        for i in range(7):
+            words.append( xor_32(words[i*8], g_function(words[i*8+7], roundcount(i+1))) )
+            words.append( xor_32(words[i*8+ 8], words[i*8+1]) )
+            words.append( xor_32(words[i*8+ 9], words[i*8+2]) )
+            words.append( xor_32(words[i*8+10], words[i*8+3]) )
+
+            words.append( xor_32( h_function(words[i*8+11]), words[i*8+4]) )
+            words.append( xor_32(words[i*8+12], words[i*8+5]) )
+            words.append( xor_32(words[i*8+13], words[i*8+6]) )
+            words.append( xor_32(words[i*8+14], words[i*8+7]) )
+
+        for i in range(15):
+            keys.append(bytearray( words[i*4] + words[i*4+1] + words[i*4+2] + words[i*4+3] ))
+        return keys
     else:
         raise ValueError("this is not good")
 
@@ -228,51 +269,63 @@ def encrypt(mode, plaintext, masterkey):
     state = bytearray(16)
     # generate subkeys, save into key array
     keys = generate_subkeys(mode, masterkey)
-    print("Plaintext:")
-    print(str(''.join(format(x, '02x') for x in ( plaintext ))), "\n")
-    print("Main key:")
-    print(str(''.join(format(x, '02x') for x in ( masterkey ))), "\n")
-    print("Derived keys:")
-    for i in range(11):
-        print(str(''.join(format(x, '02x') for x in ( generate_subkeys(mode, masterkey)[i] ))))
+    if(verbose):
+        print("Plaintext:")
+        print(str(''.join(format(x, '02x') for x in ( plaintext ))), "\n")
+        print("Main key:")
+        print(str(''.join(format(x, '02x') for x in ( masterkey ))), "\n")
+        print("Derived keys:")
+        for i in range(11):
+            print(str(''.join(format(x, '02x') for x in ( generate_subkeys(mode, masterkey)[i] ))))
 
     #key addition before rounds start
-    print("\nFirst round: Key addition")
+    if(verbose): print("\nFirst round: Key addition")
     state = key_addition(plaintext, keys[0])
-    print("current state is", str(''.join(format(x, '02x') for x in ( state ))), "\n")
+    if(verbose): print("current state is", str(''.join(format(x, '02x') for x in ( state ))), "\n")
 
     #rounds start
     for i in range(modeDict[mode]):
-        print("round", i+1, "starting")
+        if(verbose): print("round", i+1, "starting")
 
         #  Byte substitution
-        print("substituting bytes")
+        if(verbose): print("substituting bytes")
         state = byte_substitution("forward", state)
-        print("current state is", str(''.join(format(x, '02x') for x in ( state ))))
+        if(verbose): print("current state is", str(''.join(format(x, '02x') for x in ( state ))))
         
         # shift rows
-        print("shifting rows")
+        if(verbose): print("shifting rows")
         state = shift_rows("forward", state)
-        print("current state is", str(''.join(format(x, '02x') for x in ( state ))))
+        if(verbose): print("current state is", str(''.join(format(x, '02x') for x in ( state ))))
         
         if(i < modeDict[mode]-1):
             # mix column
-            print("mixing columns")
+            if(verbose): print("mixing columns")
             state = mix_column("forward", state)
-            print("current state is", str(''.join(format(x, '02x') for x in ( state ))))
+            if(verbose): print("current state is", str(''.join(format(x, '02x') for x in ( state ))))
 
         # key addition
-        print("adding subkey", str(''.join(format(x, '02x') for x in ( keys[i+1] ))))
+        if(verbose): print("adding subkey", str(''.join(format(x, '02x') for x in ( keys[i+1] ))))
         state = key_addition(state, keys[i+1])
-        print("current state is", str(''.join(format(x, '02x') for x in ( state ))))
-        print("round", i+1, "complete.\n\n")
+        if(verbose): print("current state is", str(''.join(format(x, '02x') for x in ( state ))))
+        if(verbose): print("round", i+1, "complete.\n\n")
     return state
 
 def decrypt(mode):
     # TODO: decryption function
     print("decryption function; not yet implemented")
 
-test_block  = bytearray(b"\x54\x68\x61\x74\x73\x20\x6d\x79\x20\x4b\x75\x6e\x67\x20\x46\x75")
-plaintext = bytearray("Two One Nine Two", "ascii")
+verbose = 1
 
-print(str(''.join(format(x, '02x') for x in ( encrypt(128, plaintext, test_block) ))))
+plaintext = bytearray("supersecret text", "ascii")
+key  = bytearray(b"\x54\x68\x61\x74\x73\x20\x6d\x79\x20\x4b\x75\x6e\x67\x20\x46\x75")
+key_256 = bytearray(b"\x60\x3D\xEB\x10\x15\xCA\x71\xBE\x2B\x73\xAE\xF0\x85\x7D\x77\x81\x1F\x35\x2C\x07\x3B\x61\x08\xD7\x2D\x98\x10\xA3\x09\x14\xDF\xF4")
+key_192 = bytearray(b"\x8E\x73\xB0\xF7\xDA\x0E\x64\x52\xC8\x10\xF3\x2B\x80\x90\x79\xE5\x62\xF8\xEA\xD2\x52\x2C\x6B\x7B")
+
+print("Plaintext:")
+print(str(''.join(format(x, '02x') for x in ( plaintext ))), "\n")
+print("Main key:")
+print(str(''.join(format(x, '02x') for x in ( key_192 ))), "\n")
+print("Main key length:", len(key_192)*8, "bits")
+print("Derived keys:")
+for i in range(13):
+    print(str(''.join(format(x, '02x') for x in ( generate_subkeys(192, key_192)[i] ))))
