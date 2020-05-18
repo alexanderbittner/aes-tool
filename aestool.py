@@ -316,20 +316,23 @@ def decrypt(mode):
 
 verbose = 1
 
-plaintext = bytearray("supersecret text", "ascii")
-plaintext = bytearray(b"\x6B\xC1\xBE\xE2\x2E\x40\x9F\x96\xE9\x3D\x7E\x11\x73\x93\x17\x2A")
 key  = bytearray(b"\x54\x68\x61\x74\x73\x20\x6d\x79\x20\x4b\x75\x6e\x67\x20\x46\x75")
-key_256 = bytearray(b"\x60\x3D\xEB\x10\x15\xCA\x71\xBE\x2B\x73\xAE\xF0\x85\x7D\x77\x81\x1F\x35\x2C\x07\x3B\x61\x08\xD7\x2D\x98\x10\xA3\x09\x14\xDF\xF4")
-key_192 = bytearray(b"\x8E\x73\xB0\xF7\xDA\x0E\x64\x52\xC8\x10\xF3\x2B\x80\x90\x79\xE5\x62\xF8\xEA\xD2\x52\x2C\x6B\x7B")
 
-print(str(''.join(format(x, '02x') for x in ( encrypt(192, plaintext, key_192) ))))
-'''
-print("Plaintext:")
-print(str(''.join(format(x, '02x') for x in ( plaintext ))), "\n")
+crypto_key = bytearray("Einfuehrung in die Kryptographie", "ascii")
+
+plaintext1 = bytearray(b"\x00\x00\x00\x00\x00\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
+plaintext2 = bytearray(b"\x00\x00\x00\x00\x00\x22\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
+
+print("encrypting plaintext1")
+print(str(''.join(format(x, '02x') for x in ( encrypt(128, plaintext1, key) ))))
+
+print("encrypting plaintext2")
+print(str(''.join(format(x, '02x') for x in ( encrypt(128, plaintext2, key) ))))
+
+print("Key schedule example")
 print("Main key:")
-print(str(''.join(format(x, '02x') for x in ( key_192 ))), "\n")
-print("Main key length:", len(key_192)*8, "bits")
+print(str(''.join(format(x, '02x') for x in ( crypto_key ))), "\n")
+print("Main key length:", len(crypto_key)*8, "bits")
 print("Derived keys:")
-for i in range(13):
-    print(str(''.join(format(x, '02x') for x in ( generate_subkeys(192, key_192)[i] ))))
-'''
+for i in range(15):
+    print(str(''.join(format(x, '02x') for x in ( generate_subkeys(256, crypto_key)[i] ))))
